@@ -14,6 +14,12 @@ DEFAULTS = [
     ("interest_col_index", "6"),      # 0-based column number
     ("expected_principal_total", "49090.97"),
     ("expected_interest_total", "6689.97"),
+
+       # ---- TEMP1 (yours) ----
+    ("input_file_temp1",                                                  # <-- TEMP1 (yours)
+     r"C:/Users/Admin/OneDrive - StayAhead/Documents/Projects/B&W/Combined/B-W/input/cash link usa, llc.xls"),
+    ("output_file_temp1", "output/temp1_payment_sheet.xlsx"),             # <-- TEMP1 (yours)
+
 ]
 
 # Order of the numeric columns on each debtor row in the Remittance Report
@@ -40,4 +46,39 @@ def load_config() -> dict:
     config["interest_col_index"] = int(config["interest_col_index"])
     config["expected_principal_total"] = float(config["expected_principal_total"])
     config["expected_interest_total"] = float(config["expected_interest_total"])
+    return config
+
+
+# =====================================================================
+# TEMP1  - loads ONLY the temp1 keys, ignores all of her settings
+# =====================================================================
+TEMP1_DEFAULTS = {
+    "input_file_temp1": "",
+    "input_folder_temp1": "",                # folder with the input Excel files
+    "output_folder_temp1": "output",
+    "output_template1": "",
+    "MasterDatatable": "",
+    "log_file": "logs/app.log",
+    "log_level": "INFO",
+}
+
+
+def load_temp1_config() -> dict:
+    values = {}
+    if CONFIG_PATH.exists():
+        df = pd.read_excel(CONFIG_PATH, dtype=str)
+        df = df.dropna(subset=["key"])
+        values = dict(zip(df["key"].str.strip(), df["value"].fillna("").str.strip()))
+
+    config = {}
+    for key, default in TEMP1_DEFAULTS.items():
+        value = values.get(key, "")
+        config[key] = value if value else default
+
+    if not config["input_folder_temp1"] and not config["input_file_temp1"]:
+        raise ValueError("Set 'input_folder_temp1' (or 'input_file_temp1') in config/config.xlsx")
+    if not config["output_template1"]:
+        raise ValueError("'output_template1' is missing in config/config.xlsx")
+    if not config["MasterDatatable"]:
+        raise ValueError("'MasterDatatable' is missing in config/config.xlsx")
     return config

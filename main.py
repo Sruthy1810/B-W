@@ -1,42 +1,36 @@
-from pathlib import Path
+import sys
 
-from src.config_loader import load_config
-from src.logger_setup import setup_logger
-from src.reader import read_report
-from src.validator import check_totals
-from src.cleaner import keep_valid_rows
+from main_temp1 import run_temp1
+from main_temp2 import run_temp2
+
+FLOWS = {
+    "temp1": run_temp1,
+    "temp2": run_temp2,
+}
 
 
 def main():
-    config = load_config()
-    log = setup_logger(config["log_file"], config["log_level"])
-    log.info("===== Run started =====")
+    # python main.py            -> runs temp1 and temp2
+    # python main.py temp1      -> runs only temp1
+    # python main.py temp2      -> runs only temp2
+    names = [a.lower() for a in sys.argv[1:]] or list(FLOWS)
 
-    try:
-        df = read_report(config["input_file"], config["sheet_name"],
-                         config["report_columns"])
+    unknown = [n for n in names if n not in FLOWS]
+    if unknown:
+        raise SystemExit(f"Unknown flow(s): {unknown}. Use: {list(FLOWS)}")
 
-        totals_ok = check_totals(df, config["principal_col_index"],
-                                 config["interest_col_index"],
-                                 config["expected_principal_total"],
-                                 config["expected_interest_total"])
-        if not totals_ok:
-            log.warning("Totals do not match the report. Some rows may have been missed.")
+    failed = []
+    for name in names:
+        print(f"\n########## Running {name} ##########")
+        try:
+            FLOWS[name]()
+        except Exception as exc:               # one flow failing must not stop the other
+            failed.append(name)
+            print(f"{name} FAILED: {exc}  (details in logs/app.log)")
 
-        valid = keep_valid_rows(df, config["principal_col_index"],
-                                config["interest_col_index"], config["rule_mode"])
-
-        Path(config["output_file"]).parent.mkdir(parents=True, exist_ok=True)
-        valid.to_excel(config["output_file"], index=False)
-        log.info("Saved valid data to %s", config["output_file"])
-
-        print(valid.head(20).to_string())
-        print(f"\nValid rows: {len(valid)}")
-    except Exception:
-        log.exception("Run failed")
-        raise
-    finally:
-        log.info("===== Run finished =====")
+    print(f"\nFinished. Succeeded: {[n for n in names if n not in failed]} | Failed: {failed}")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
